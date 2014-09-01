@@ -1,0 +1,129 @@
+# Ass 1
+
+========================================================================================================
+
+
+
+This report will try to answer the questions of Assignment 2 of the course Reproducible Research
+ 
+
+### Loading and preprocessing the data
+
+To load the data i just used the code below. The dataset "dataperyear" has the aggregated data per date
+```{r, echo=TRUE, results='hide'}
+data<-read.csv("activity.csv")
+dataperyear<- aggregate(data$steps,by=data["date"],FUN=sum, na.rm=TRUE)
+```
+
+
+### What is mean total number of steps taken per day?
+
+**Make a histogram of the total number of steps taken each day**
+
+```{r, echo=TRUE}
+hist(dataperyear$x)
+
+```
+
+
+
+The code to calculate the mean and median total number of steps taken per day is the below. 
+
+```{r, echo=TRUE}
+
+mean<- aggregate(data$steps,by=data["date"],FUN=mean, na.rm=TRUE)
+
+median<- aggregate(data$steps,by=data["date"],FUN=median, na.rm=TRUE)
+
+```
+
+The outcome was
+1. Mean is ` r mean `
+2. Median is ` r median `
+
+### What is the average daily activity pattern?
+
+**Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)**
+
+```{r, echo=TRUE, results='hide'}
+mean2<- aggregate(data$steps,by=data["interval"],FUN=mean, na.rm=TRUE)
+```
+
+```{r, echo=TRUE}
+plot(mean2$interval, mean2$x, type="l", xlab= "interval", ylab= "Average number of steps taken", col="green" , lwd=2)
+```
+
+
+**Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?**
+
+```{r, echo=TRUE, results='hide'}
+which.max(mean2$x)
+
+s<-mean2[which.max(mean2$x),1]
+
+```
+
+The 5-minute interval which contains the max number of steps is ` r s `
+
+### Imputing missing values
+
+**Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)**
+
+```{r, echo=TRUE}
+library(plyr)
+ddply(data,.(date), summarise, Count_Missing= sum(is.na(steps)), Count_No_Missing= sum(!is.na(steps)))
+```
+
+**Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.**
+
+In this case i used the mean of 5-minute interval. Firstly i create a function which replace with the mean.
+Then i used the function ddply. The code is the below
+
+```{r, echo=TRUE, results='hide'}
+
+
+impute.mean <- function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))
+
+
+#transform the data
+data_trans<-ddply(data,.(interval), transform, steps= impute.mean(steps))
+
+data_trans[order(data_trans$date), ] #plyr orders by group so we have to reorder
+
+#onvert do date
+data_trans$date<-as.Date(data_trans$date)
+
+
+#create list with weekends
+
+weekend<-c("Saturday", "Sunday")
+
+#create one more column with weekdays
+
+data_trans$weekday <- weekdays(data_trans$date, abbreviate=FALSE)
+
+#create one more column with TRUE, FALSE regarding whether is weekend
+
+
+data_trans$IsWeekend <- data_trans$weekday %in% weekend
+
+
+```
+
+The plot is the following
+
+```{r, echo=TRUE}
+
+#take the average per interval and per whether is weekend
+
+
+mean3<- aggregate(data_trans$steps,by=list(data_trans$interval, data_trans$IsWeekend),FUN=mean, na.rm=TRUE)
+
+#rename the column names
+colnames(mean3)<-c("interval", "IsWeekend", "steps")
+library(ggplot2)
+p<-ggplot(mean3, aes(x=interval,y=steps))+geom_line(aes(color=IsWeekend),size=1.5)+facet_wrap(~IsWeekend, nrow=2)
+
+print(p)
+
+```
